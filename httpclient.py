@@ -49,6 +49,12 @@ class HTTPClient(object):
         else:
             return parsed_url.hostname, parsed_url.port, parsed_url.path
 
+    # def get_args(args=None):
+    #     print(f"askjdhakjshd {args}")
+    #     parameters = urlparse.urlencode(args)
+    #     return parameters
+        
+
     def connect(self, host, port):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
@@ -102,13 +108,12 @@ class HTTPClient(object):
             request += path
         else:
             request += "/"
-        if port == 80:
-            request += " HTTP/1.1\nHost: " + host + ":" + str(port) + "\r\n" 
-        else:
-            request += " HTTP/1.1\nHost: " + host + "\r\n"
-        request += "\n\n"
+        request += " HTTP/1.1\r\n"
+        request += "Host: " + host + "\r\n"
+        request += "Connection: close" + "\r\n"
+        request += "\r\n"
 
-        print(f"the request is: \n{request}")
+        print(f"\nthe request is: \n{request}")
 
         self.sendall(request)
         data = self.recvall(self.socket)
@@ -122,11 +127,33 @@ class HTTPClient(object):
 
     def POST(self, url, args=None):
         host, port, path= self.get_host_port(url)
+        parameters = ""
+        print(f"the args are: {args}")
+        if args:
+            # parameter = self.get_args(args)
+            # print(f"the parameters are: {parameter}")
+            parameters = urlparse.urlencode(args)
+            length = len(parameters)
+        else:
+            length = 0
+
         self.connect(host, port)
-        length = len(path)
+        
+        request = "POST "    
+        if path: 
+            request += path
+        else:
+            request += "/"
+        request += " HTTP/1.1\r\n"
+        request += "Host: " + host + "\r\n"
+        request += "Content-Type: application/x-www-form-urlencoded" + "\r\n"
+        request += "Content-Length: " + str(length) + "\r\n"
+        request += "\r\n"
+        request += parameters
+
         # request = "POST / HTTP/1.1\nHost:" + host + "\n\n"
-        request = "POST " + path +  " HTTP/1.1\nHost:" + host + "\r\n" + "Content-Length:" + str(length) + "\n\n"
-        print(f"\nThe reqeust to be sent to the server is: {request}\n")
+        # request = "POST " + path +  " HTTP/1.1\nHost:" + host + "\r\n" + "Content-Length:" + str(length) + "\n\n"
+        print(f"\nThe reqeust to be sent to the server is:\n{request}\n")
         self.sendall(request)
         data = self.recvall(self.socket)
         # print(f"the POST data is: {data}")
