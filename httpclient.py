@@ -22,7 +22,7 @@ import sys
 import socket
 import re
 # you may use urllib to encode data appropriately
-import urllib.parse
+import urllib.parse as urlparse
 
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
@@ -33,7 +33,21 @@ class HTTPResponse(object):
         self.body = body
 
 class HTTPClient(object):
-    #def get_host_port(self,url):
+    def get_host_port(self,url):
+        parsed_url = urlparse.urlparse(url)
+        print(f"\nparsed url is: {parsed_url}")
+        print(f"\nThe Hostname is: {parsed_url.hostname}\n")
+        print(f"The port is: {parsed_url.port}\n")
+        print(f"The path given is: {parsed_url.path}\n")
+
+        if parsed_url.port == None:
+            if parsed_url.scheme == 'http':
+                port = 80
+            else:
+                port = 443
+            return parsed_url.hostname, port, parsed_url.path
+        else:
+            return parsed_url.hostname, parsed_url.port, parsed_url.path
 
     def connect(self, host, port):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,13 +55,23 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        data_split = data.split("\r\n")
+        main_header = data_split[0].split(' ')
+        print(main_header)
+        code = main_header[1]
+        return code
 
     def get_headers(self,data):
-        return None
+        # data_split = data.split("\r\n")
+        data_split = data.split("\r\n\r\n")
+        # main_header = data_split[0].split(' ')
+        header = data_split[0]
+        return header
 
     def get_body(self, data):
-        return None
+        data_split = data.split("\r\n\r\n")
+        body = data_split[1]
+        return body
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -68,13 +92,48 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
+        host, port, path = self.get_host_port(url)
+        print(f"the url is: {url}")
+            
+        self.connect(host, port)
+
+        request = "GET "    
+        if path: 
+            request += path
+        else:
+            request += "/"
+        if port == 80:
+            request += " HTTP/1.1\nHost: " + host + ":" + str(port) + "\r\n" 
+        else:
+            request += " HTTP/1.1\nHost: " + host + "\r\n"
+        request += "\n\n"
+
+        print(f"the request is: \n{request}")
+
+        self.sendall(request)
+        data = self.recvall(self.socket)
+        self.close()
+        print(data)
+        headers = self.get_headers(data)
+        print(f"the headers is: {headers}")
+        code = int(self.get_code(data))
+        body = self.get_body(data)
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
+        host, port, path= self.get_host_port(url)
+        self.connect(host, port)
+        length = len(path)
+        # request = "POST / HTTP/1.1\nHost:" + host + "\n\n"
+        request = "POST " + path +  " HTTP/1.1\nHost:" + host + "\r\n" + "Content-Length:" + str(length) + "\n\n"
+        print(f"\nThe reqeust to be sent to the server is: {request}\n")
+        self.sendall(request)
+        data = self.recvall(self.socket)
+        # print(f"the POST data is: {data}")
+        self.close()
+        code = int(self.get_code(data))
+        body = self.get_body(data)
+        print(data)
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
@@ -90,6 +149,7 @@ if __name__ == "__main__":
         help()
         sys.exit(1)
     elif (len(sys.argv) == 3):
+        print(sys.argv[2])
         print(client.command( sys.argv[2], sys.argv[1] ))
     else:
         print(client.command( sys.argv[1] ))
